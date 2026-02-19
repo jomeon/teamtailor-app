@@ -1,21 +1,39 @@
 const axios = require('axios');
 
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 const getCandidatesWithApplications = async () => {
     try {
-        const response = await axios.get('https://api.teamtailor.com/v1/candidates?include=job-applications', {
-            headers: {
-                'Authorization': `Token token=${process.env.TEAMTAILOR_API_KEY}`,
-                'X-Api-Version': '20240404',
-                'Accept': 'application/vnd.api+json'
+        let url = 'https://api.teamtailor.com/v1/candidates?include=job-applications';
+        let allCandidates = [];
+        let allIncluded = [];
+
+        while (url) {
+            console.log(`I am downloading data from: ${url}`);
+            const response = await axios.get(url, {
+                headers: {
+                    'Authorization': `Token token=${process.env.TEAMTAILOR_API_KEY}`,
+                    'X-Api-Version': '20240404',
+                    'Accept': 'application/vnd.api+json'
+                }
+            });
+
+            allCandidates = allCandidates.concat(response.data.data);
+            if (response.data.included) {
+                allIncluded = allIncluded.concat(response.data.included);
             }
-        });
 
-        const candidates = response.data.data;
-        const included = response.data.included || [];
+            url = response.data.links && response.data.links.next ? response.data.links.next : null;
 
-        
+            if (url) {
+                await delay(200); 
+            }
+        }
+
+        console.log(`Total downloads ${allCandidates.length} of candidates.`);
+
         const applicationsMap = {};
-        included.forEach(item => {
+        allIncluded.forEach(item => {
             if (item.type === 'job-applications') {
                 applicationsMap[item.id] = item;
             }
@@ -23,7 +41,7 @@ const getCandidatesWithApplications = async () => {
 
         const flatData = [];
 
-        candidates.forEach(candidate => {
+        allCandidates.forEach(candidate => {
             const candidateId = candidate.id;
             const firstName = candidate.attributes['first-name'] || '';
             const lastName = candidate.attributes['last-name'] || '';
@@ -57,7 +75,7 @@ const getCandidatesWithApplications = async () => {
 
         return flatData;
     } catch (error) {
-        console.error('Error while downloading data from Teamtailor:', error.response?.data || error.message);
+        console.error('Error while retrieving data from Teamtailor:', error.response?.data || error.message);
         throw new Error('Failed to fetch data from API');
     }
 };
