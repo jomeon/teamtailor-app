@@ -11,7 +11,6 @@ const generateCsv = (data) => {
     ];
     
     try {
-        
         const json2csvParser = new Parser({ fields });
         const csvData = json2csvParser.parse(data);
         
